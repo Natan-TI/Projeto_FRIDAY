@@ -1,0 +1,47 @@
+# ==========================================================
+#  Dependências do Projeto M.A.D.A.R.A.
+#
+#  Windows:  pip install -r requirements.txt
+#
+#  macOS:    é preciso instalar duas coisas ANTES via Homebrew,
+#            porque o PyAudio compila contra a lib nativa portaudio
+#            e o numpy>=2.1 exige Python 3.10 ou superior:
+#
+#              brew install python@3.13 portaudio
+#              python3.13 -m venv .venv
+#              source .venv/bin/activate
+#              pip install -r requirements.txt
+#
+#  ATENÇÃO: a pasta .venv NÃO é portátil entre Windows e macOS.
+#  Ao trocar de sistema, apague o .venv e crie um novo.
+# ==========================================================
+
+# --- Reconhecimento de voz (Speech-to-Text) ---
+SpeechRecognition>=3.10
+PyAudio>=0.2.14           # acesso ao microfone (necessário para o sr.Microphone)
+
+# --- Síntese de voz (Text-to-Speech) ---
+pyttsx3>=2.90            # TTS offline (voz principal)
+gTTS>=2.5               # TTS online (alternativa)
+pygame>=2.6             # reprodução do áudio do gTTS
+
+# --- Visão computacional / reconhecimento facial ---
+opencv-contrib-python>=4.11,<5.0   # inclui o módulo cv2.face (Eigenfaces)
+numpy>=2.1                    # numpy>=2.1 já traz wheels para o Python 3.13
+
+# --- Requisições HTTP (cotações, clima, Ollama) ---
+requests>=2.32
+
+# --- IA generativa na nuvem ---
+groq>=0.11
+
+# --- Voz de personagem (grave/sombria) - gratuita, sem chave de API ---
+edge-tts>=6.1
+
+# --- Automação de sistema (print de tela e volume) ---
+pyautogui>=0.9.54
+Pillow>=10.0             # o pyscreeze (print de tela) precisa, mas não declara
+
+# --- macOS: bindings nativos exigidos pelo pyttsx3 (NSSpeechSynthesizer)
+#     e pelo pyautogui (Quartz). Ignorado no Windows/Linux. ---
+pyobjc>=10.0 ; sys_platform == "darwin"

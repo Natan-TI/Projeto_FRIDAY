@@ -1,0 +1,56 @@
+# ==========================================================
+#  .gitignore - Projeto M.A.D.A.R.A.
+# ==========================================================
+
+# --- SEGREDOS (NUNCA suba a chave de API!) ---
+.env
+*.key
+
+# --- Ambientes virtuais ---
+# A .venv NÃO é portátil entre Windows e macOS: cada pessoa
+# deve criar a sua com 'python -m venv .venv'.
+.venv/
+venv/
+env/
+
+# --- Cache do Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# --- Modelo treinado ---
+# 133 MB: acima do limite de 100 MB do GitHub, o push seria REJEITADO.
+# Além disso é um arquivo GERADO - basta rodar 'python treinar_modelo.py'
+# para recriá-lo a partir da pasta 'fotos/'.
+classificadoreigen.yml
+
+# --- Fotos dos rostos ---
+# São imagens biométricas de pessoas reais e identificáveis. Não devem ir
+# para um repositório público sem o consentimento de cada uma delas.
+fotos/
+
+# --- Material de apoio do professor ---
+# Enunciado em PDF e códigos de exemplo da aula. São material de terceiros
+# e não fazem parte da entrega - ficam só na máquina.
+assets/
+
+# --- Arquivos gerados em tempo de execução ---
+print_tela.png
+resposta_temp.mp3
+madara_fala.mp3
+agenda.txt
+
+# --- Lixo do sistema operacional ---
+# macOS
+.DS_Store
+.AppleDouble
+# Windows (o resto do grupo)
+Thumbs.db
+desktop.ini
+
+# --- IDE ---
+.idea/
+# O .vscode fica versionado: o settings.json aponta o interpretador
+# para a .venv e evita que cada pessoa configure na mão.
+.vscode/*
+!.vscode/settings.json
