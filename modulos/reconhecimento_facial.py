@@ -47,13 +47,30 @@ class ReconhecimentoFacial:
             4: "João Pedro",
         }
 
-    def reconhecer(self, limite_confianca: float = 6000.0) -> str:
+    def reconhecer(self, limite_confianca: float = 6750.0) -> str:
         """
         Abre a webcam e tenta reconhecer a pessoa à frente.
 
         No EigenFaceRecognizer, quanto MENOR o valor de 'confianca', melhor
         é a correspondência. Acima de 'limite_confianca' tratamos como
         'Desconhecido'.
+
+        Sobre o valor 6750: foi calibrado com as 100 fotos da pasta 'fotos/',
+        treinando com uma pessoa inteira de fora para simular um estranho.
+        As faixas medidas foram:
+
+            pessoas cadastradas -> confiança de 1192 a 6549
+            estranhos           -> confiança de 6374 a 10660
+
+        Em 6750 o sistema aceita 100% de quem está cadastrado e ainda rejeita
+        99% dos estranhos. O valor anterior (6000) caía dentro da faixa das
+        pessoas cadastradas e chamava de "Desconhecido" quem o modelo já
+        tinha acertado.
+
+        Se vocês recapturarem as fotos, REFAÇA essa calibragem: o número
+        depende da câmera e da iluminação. A janela mostra a confiança ao
+        lado do nome - observe os valores nos acertos e nos erros e escolha
+        um limiar entre as duas faixas.
 
         Retorna o nome reconhecido (ou 'Desconhecido'). Pressione 'q' para sair.
         """

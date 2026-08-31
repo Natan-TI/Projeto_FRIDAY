@@ -146,7 +146,7 @@ class Utilidades:
 
     def abrir_portal_faculdade(self) -> str:
         """Abre o portal do aluno da faculdade."""
-        webbrowser.open("https://www.fiap.com.br/graduacao/on/")
+        webbrowser.open("https://on.fiap.com.br/")
         return "Abrindo o portal da faculdade."
 
     # ------------------------------------------------------------------ #

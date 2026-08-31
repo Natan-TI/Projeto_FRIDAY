@@ -1,6 +1,6 @@
 # 🤖 Projeto M.A.D.A.R.A. — Assistente Virtual por Comandos de Voz
 
-Assistente virtual inspirada na **M.A.D.A.R.A.** (Marvel), capaz de reconhecer
+Assistente virtual inspirada na **M.A.D.A.R.A.** (Naruto), capaz de reconhecer
 comandos de voz e executar tarefas — desde consultar a agenda até conversar com
 uma **IA generativa** e reconhecer o rosto do usuário pela webcam.
 
@@ -48,9 +48,11 @@ projeto_madara/
 ├── capturar_rostos.py            # Script: captura amostras de rosto na webcam
 ├── treinar_modelo.py             # Script: treina o modelo Eigenfaces (.yml)
 ├── requirements.txt              # Dependências do projeto
-├── agenda.txt                    # Arquivo onde os eventos são gravados
-├── classificadoreigen.yml        # Modelo facial pré-treinado (gerado no treino)
-├── fotos/                        # Amostras de rosto para o treinamento
+├── .env.example                  # Modelo de configuração (copie para .env)
+├── .env                          # 🔒 suas chaves        (fora do repositório)
+├── agenda.txt                    # Eventos cadastrados   (fora do repositório)
+├── classificadoreigen.yml        # Modelo treinado       (fora do repositório)
+├── fotos/                        # Amostras de rosto     (fora do repositório)
 └── modulos/                      # Pacote com as classes da assistente
     ├── __init__.py
     ├── voz.py                    # Classe Voz  (ouvir e falar)
@@ -159,7 +161,19 @@ próximo start.
 A assistente já vem configurada para usar a **Groq** (gratuita e rápida na nuvem).
 
 1. Crie uma conta e gere uma chave em <https://console.groq.com>.
-2. Defina a chave numa **variável de ambiente** (nunca coloque a chave no código):
+2. Copie o modelo de configuração e preencha com a **sua** chave:
+
+```bash
+cp .env.example .env
+```
+
+3. Abra o `.env` e substitua o valor de `GROQ_API_KEY`.
+
+> 🔒 O `.env` está no `.gitignore` e **nunca** deve ser enviado ao GitHub.
+> Se uma chave vazar num commit, apagar o arquivo depois **não resolve** — ela
+> continua no histórico e precisa ser revogada no painel da Groq.
+
+Alternativamente, dá para usar uma variável de ambiente do sistema:
 
 ```bash
 # Windows (PowerShell)
@@ -198,27 +212,56 @@ usar uma voz masculina em PT-BR e **abaixar o tom (pitch)** e a velocidade.
   EDGE_RATE=-15%                   # mais negativo = mais lento/pesado
   ```
 
-- Sem internet, a assistente cai automaticamente na **voz padrão do Windows**
-  (pyttsx3), sem travar.
+- Sem internet, a assistente cai automaticamente na **voz padrão do sistema**
+  (pyttsx3), sem travar. No macOS isso usa o sintetizador da Apple; no Windows,
+  o SAPI5.
 
 ---
 
 ## 👤 Preparando o reconhecimento facial (item 7)
 
-1. **Capturar rostos** (repita para cada integrante e também para
-   `Desconhecido`, conforme a dica do enunciado):
+> ⚠️ **O modelo treinado e as fotos NÃO vêm no repositório** (ver
+> [Arquivos fora do controle de versão](#-arquivos-fora-do-controle-de-versão)).
+> Depois de clonar, é obrigatório refazer os passos abaixo.
+
+1. **Capturar rostos** — repita para cada integrante:
    ```bash
    python capturar_rostos.py
    ```
-   Encare a webcam e pressione **`f`** para salvar cada amostra.
+   Digite o nome, encare a webcam e pressione **`f`** para salvar cada amostra
+   (até 25). Varie um pouco o ângulo e a expressão.
 
-2. **Ajustar os nomes/ids** em `treinar_modelo.py` (dicionário `MAPA_IDS`) e no
-   dicionário `self.nomes` de `modulos/reconhecimento_facial.py`.
+2. **Ajustar os nomes/ids** em **dois lugares**, que precisam bater entre si:
+   - `MAPA_IDS`, em `treinar_modelo.py` — a chave deve ser **exatamente** o
+     trecho do nome do arquivo antes do `_`
+   - `self.nomes`, em `modulos/reconhecimento_facial.py`
+
+   Se esquecer de um dos dois, o treino avisa no terminal em vez de rotular a
+   pessoa silenciosamente como "Desconhecido".
 
 3. **Treinar o modelo** (gera o `classificadoreigen.yml`):
    ```bash
    python treinar_modelo.py
    ```
+
+### Ajustando a precisão
+
+O `limite_confianca` (em `modulos/reconhecimento_facial.py`) é o que decide
+entre reconhecer a pessoa e responder "Desconhecido". No Eigenfaces, **quanto
+menor o valor, melhor a correspondência** — então o limiar é um teto:
+
+- **muito baixo** → o sistema chama gente cadastrada de "Desconhecido"
+- **muito alto** → o sistema dá o nome de alguém a estranhos
+
+A janela da webcam mostra o número ao lado do nome. Observe quanto dá quando
+acerta e quanto dá quando erra, e ponha o limiar entre os dois valores.
+
+> **Sobre a classe "Desconhecido" sugerida no enunciado:** ela ajuda pouco
+> sozinha. O Eigenfaces não aprende o conceito de "estranho" — ele só decora os
+> rostos que você mostrar. Medindo com 4 pessoas, uma única pessoa na classe 0
+> rejeitou ~50% dos estranhos (cara ou coroa); com duas, ~66%. Vale mais pela
+> **variedade** de pessoas do que pela quantidade de fotos. Quem realmente
+> decide a rejeição é o `limite_confianca`.
 
 ---
 
@@ -237,6 +280,23 @@ Fale, por exemplo:
 - *"madara quanto vale um bitcoin?"*
 - *"madara jogo da velha"*
 - *"madara desligar"*
+
+---
+
+## 🚫 Arquivos fora do controle de versão
+
+Alguns arquivos ficam **de fora do repositório** de propósito. Depois de
+clonar, é normal que eles não existam — o passo a passo acima os recria.
+
+| Arquivo / pasta | Por que não vai para o GitHub |
+|---|---|
+| `.env` | Contém a chave da API. Uma chave em commit fica no histórico para sempre. |
+| `classificadoreigen.yml` | **133 MB** — acima do limite de 100 MB do GitHub, o push seria rejeitado. É gerado: recrie com `python treinar_modelo.py`. |
+| `fotos/` | Imagens biométricas de pessoas reais e identificáveis. Não devem ser publicadas sem o consentimento de cada uma. |
+| `.venv/` | Guarda caminhos absolutos da máquina. Cada pessoa cria a sua. |
+| `agenda.txt` | Dado de uso, não código. |
+| `assets/` | Material de apoio do professor (enunciado e exemplos de aula). |
+| `.DS_Store`, `__pycache__/` | Lixo do sistema operacional e cache do Python. |
 
 ---
 
