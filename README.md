@@ -1,6 +1,6 @@
 # 🤖 Projeto M.A.D.A.R.A. — Assistente Virtual por Comandos de Voz
 
-Assistente virtual inspirada na **M.A.D.A.R.A.** (Naruto), capaz de reconhecer
+Assistente virtual inspirada na **F.R.I.D.A.Y.** (MArvel), capaz de reconhecer
 comandos de voz e executar tarefas — desde consultar a agenda até conversar com
 uma **IA generativa** e reconhecer o rosto do usuário pela webcam.
 
