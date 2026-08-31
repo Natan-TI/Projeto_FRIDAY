@@ -9,11 +9,6 @@ Como usar:
     1) Rode:  python capturar_rostos.py
     2) Digite o seu nome.
     3) Encare a webcam e pressione 'f' várias vezes para capturar amostras.
-       (capture também amostras de outras pessoas usando o nome
-        'Desconhecido' para melhorar o reconhecimento, conforme a dica do PDF)
-
-Baseado no 'capturas.py' do professor, com suporte a caminhos acentuados
-no Windows (via modulos/cv_utils.py).
 """
 
 import os

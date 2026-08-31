@@ -321,6 +321,7 @@ clonar, é normal que eles não existam — o passo a passo acima os recria.
 | Gustavo Henrique Santos Bonfim | RM98864 |
 | Kayky Paschoal Ribeiro | RM99929 |
 | Lucas Yuji Farias Umada | RM99757 |
+| André Sóler | RM98827 |
 
 ---
 
