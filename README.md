@@ -1,6 +1,6 @@
 # 🤖 Projeto M.A.D.A.R.A. — Assistente Virtual por Comandos de Voz
 
-Assistente virtual inspirada na **F.R.I.D.A.Y.** (MArvel), capaz de reconhecer
+Assistente virtual inspirada na **F.R.I.D.A.Y.** (Marvel), capaz de reconhecer
 comandos de voz e executar tarefas — desde consultar a agenda até conversar com
 uma **IA generativa** e reconhecer o rosto do usuário pela webcam.
 
@@ -38,29 +38,54 @@ uma **IA generativa** e reconhecer o rosto do usuário pela webcam.
 - ⭕ **"madara jogo da velha"** (jogado por voz contra a assistente)
 - 🛑 **"madara desligar"** (encerra a assistente)
 
+### Boneco com Arduino
+
+- 👁️ **Olhos acesos** — os dois LEDs acendem sempre que o MADARA fala, em
+  sincronia com o áudio
+- 🌀 **"madara hashirama"** — a cabeça do boneco balança de um lado para o
+  outro enquanto o MADARA fala, em personagem, sobre acabar com o clã Senju
+- 🔴 **"madara ativar sharingan"** — só o LED vermelho acende, a cabeça balança
+  e ele anuncia o *Mangekyou Sharingan*
+- 🔵 **"madara ativar rinnegan"** — só o LED azul acende, a cabeça balança e
+  ele anuncia o *Rinnegan do Sábio dos Seis Caminhos*
+
+O Sharingan e o Rinnegan precisam do verbo **"ativar"**: uma pergunta como
+*"madara, quem tem o sharingan?"* continua indo para a IA.
+
+Detalhes de montagem em [Integração com o Arduino](#-integração-com-o-arduino), e
+as peças impressas em 3D em [Modelos 3D do boneco](#-modelos-3d-do-boneco).
+
 ---
 
 ## 🗂️ Estrutura do projeto
 
 ```
-projeto_madara/
+Projeto_FRIDAY/
 ├── madara.py                     # Programa principal (classe AssistenteMadara)
 ├── capturar_rostos.py            # Script: captura amostras de rosto na webcam
 ├── treinar_modelo.py             # Script: treina o modelo Eigenfaces (.yml)
+├── testar_arduino.py             # Script: testa olhos e cabeça do boneco
 ├── requirements.txt              # Dependências do projeto
 ├── .env.example                  # Modelo de configuração (copie para .env)
 ├── .env                          # 🔒 suas chaves        (fora do repositório)
 ├── agenda.txt                    # Eventos cadastrados   (fora do repositório)
 ├── classificadoreigen.yml        # Modelo treinado       (fora do repositório)
 ├── fotos/                        # Amostras de rosto     (fora do repositório)
+├── arduino/
+│   └── madara_arduino/
+│       └── madara_arduino.ino    # Sketch da placa (olhos + cabeça)
+├── modelos3d/                    # Peças do boneco para impressão 3D (.stl / .f3d)
 └── modulos/                      # Pacote com as classes da assistente
     ├── __init__.py
+    ├── config.py                 # Leitura das chaves (.env / variáveis de ambiente)
+    ├── cv_utils.py               # OpenCV com caminhos acentuados (Windows)
     ├── voz.py                    # Classe Voz  (ouvir e falar)
     ├── agenda.py                 # Classe Agenda
     ├── reconhecimento_facial.py  # Classe ReconhecimentoFacial
     ├── ia_generativa.py          # Classe IAGenerativa (Groq / Ollama)
     ├── utilidades.py             # Classe Utilidades (hora, data, cálculo, cotações...)
-    └── jogo_da_velha.py          # Classe JogoDaVelha
+    ├── jogo_da_velha.py          # Classe JogoDaVelha
+    └── arduino.py                # Classe Arduino (porta serial)
 ```
 
 Cada funcionalidade está isolada em **uma classe própria** e o código é dividido
@@ -82,7 +107,14 @@ graph TD
     A --> IA[IAGenerativa]
     A --> U[Utilidades]
     A --> J[JogoDaVelha]
+    A --> AR[Arduino]
+    V --> AR
 ```
+
+Repare na seta `Voz → Arduino`: a `Voz` recebe o mesmo objeto `Arduino` no
+construtor. É assim que os olhos acendem em **toda** fala — inclusive as do
+jogo da velha, que usa a `Voz` diretamente — sem que nenhuma outra classe
+precise lembrar de acendê-los.
 
 ---
 
@@ -95,8 +127,8 @@ graph TD
 
 ### 2. Clonar o repositório
 ```bash
-git clone https://github.com/<seu-usuario>/projeto_madara.git
-cd projeto_madara
+git clone https://github.com/Natan-TI/Projeto_FRIDAY.git
+cd Projeto_FRIDAY
 ```
 
 ### 3. Criar e ativar um ambiente virtual
@@ -116,14 +148,20 @@ pip install -r requirements.txt
 **macOS**
 
 No macOS o `PyAudio` precisa da biblioteca nativa `portaudio` para compilar, e
-o `numpy>=2.1` exige Python 3.10+. Instale os dois pelo Homebrew antes:
+o `numpy>=2.1` exige Python 3.10+. Instale tudo pelo Homebrew antes:
 
 ```bash
-brew install python@3.13 portaudio
+brew install python@3.13 portaudio flac
 python3.13 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+> **Por que o `flac`?** Para enviar o áudio ao Google, o `SpeechRecognition`
+> converte a gravação para FLAC. Sem um `flac` instalado, ele usa uma cópia
+> embutida que só existe para processadores Intel, e em Macs com chip Apple
+> sem Rosetta a assistente cai com `Bad CPU type in executable` na primeira
+> vez que tenta entender uma fala.
 
 **Linux**
 ```bash
@@ -197,7 +235,7 @@ export GROQ_API_KEY="sua_chave_aqui"
 
 ## 🗣️ Voz de personagem (grave/sombria, estilo Madara Uchiha)
 
-A Madara fala com uma **voz grave e ameaçadora** usando o **edge-tts** (o
+O MADARA fala com uma **voz grave e ameaçadora** usando o **edge-tts** (o
 Text-to-Speech do Microsoft Edge) — **gratuito e sem chave de API**. O truque é
 usar uma voz masculina em PT-BR e **abaixar o tom (pitch)** e a velocidade.
 
@@ -229,11 +267,13 @@ usar uma voz masculina em PT-BR e **abaixar o tom (pitch)** e a velocidade.
    python capturar_rostos.py
    ```
    Digite o nome, encare a webcam e pressione **`f`** para salvar cada amostra
-   (até 25). Varie um pouco o ângulo e a expressão.
+   (até 50). Varie o ângulo, a expressão e, se der, a iluminação — o Eigenfaces
+   é sensível a isso, então variedade nas fotos vale mais que quantidade.
 
 2. **Ajustar os nomes/ids** em **dois lugares**, que precisam bater entre si:
-   - `MAPA_IDS`, em `treinar_modelo.py` — a chave deve ser **exatamente** o
-     trecho do nome do arquivo antes do `_`
+   - `MAPA_IDS`, em `treinar_modelo.py` — a chave é o trecho do nome do
+     arquivo antes do `_`. Maiúsculas e acentos **não** importam: a busca
+     normaliza os dois ("Gustavo", "gustavo" e "GUSTAVO" dão no mesmo id)
    - `self.nomes`, em `modulos/reconhecimento_facial.py`
 
    Se esquecer de um dos dois, o treino avisa no terminal em vez de rotular a
@@ -265,6 +305,143 @@ acerta e quanto dá quando erra, e ponha o limiar entre os dois valores.
 
 ---
 
+## 🤖 Integração com o Arduino
+
+O boneco tem dois LEDs nos olhos e um motor DC na cabeça, ligado por uma
+ponte H. Tudo é controlado por um Arduino Uno conectado ao computador pelo
+cabo USB.
+
+### Montagem
+
+| Componente | Pino do Arduino | Ligação |
+|---|---|---|
+| Ponte H — ENA | **3** | velocidade do motor (PWM) |
+| Ponte H — IN1 | **4** | sentido do giro |
+| Ponte H — IN2 | **5** | sentido do giro |
+| Motor da cabeça | — | nos terminais **OUT1** e **OUT2** da ponte H |
+| LED vermelho (Sharingan) | **9** | pino → resistor 220 Ω → LED (perna longa) → LED (perna curta) → GND |
+| LED azul (Rinnegan) | **10** | igual ao vermelho |
+
+> **Os olhos precisam de pinos com PWM** para acender gradualmente. No Uno só
+> os pinos 3, 5, 6, 9, 10 e 11 têm PWM; o 3 e o 5 já são da ponte H. O 9 e o
+> 10 usam o mesmo timer, então os dois olhos brilham exatamente iguais.
+
+> **ENA:** o módulo de ponte H costuma vir com um *jumper* no ENA, que deixa o
+> motor sempre na velocidade máxima. Ele precisa ser **retirado** para o pino 3
+> controlar a velocidade.
+
+> **Alimentação:** o motor deve ser alimentado pela entrada de força da ponte H
+> (pilhas ou fonte), não pelo 5V do Arduino. O **GND da fonte, da ponte H e do
+> Arduino precisam estar ligados entre si** — sem esse terra em comum, os
+> sinais dos pinos 3, 4 e 5 não chegam à ponte H e o motor não responde.
+
+### Como a cabeça vai e volta com um motor DC
+
+Diferente de um servo, um motor DC não sabe em que posição está: ele só gira
+para um lado ou para o outro. Por isso o sketch **estima a posição pelo
+tempo**: se o motor ficou 300 ms girando para a direita, a cabeça está "300 ms
+à direita" do centro. Com isso ela oscila em volta do centro e, ao parar, gira
+de volta o tempo necessário para ficar de frente.
+
+Os ajustes ficam no começo do sketch:
+
+| Constante | Padrão | O que faz |
+|---|---|---|
+| `VELOCIDADE_CABECA` | 200 | Velocidade de 0 a 255. Se o motor só zumbir sem girar, aumente. |
+| `AMPLITUDE_GIRO_MS` | 600 | Tempo do centro até cada lado. Maior = a cabeça vira mais. |
+| `PAUSA_INVERSAO_MS` | 120 | Freio antes de inverter o sentido, para poupar as engrenagens. |
+
+É uma estimativa: a inércia do motor acumula um pequeno erro a cada parada.
+Se depois de muito uso a cabeça estiver "fugindo" do centro, desligue e
+recentralize-a com a mão.
+
+### O balanço da cabeça (Hashirama, Sharingan e Rinnegan)
+
+Dar voltas com a cabeça torceria os fios dentro do boneco. Por isso, nas três
+cenas do boneco, a cabeça só **balança**: centro → direita → esquerda →
+centro, com uma pausa breve, e de novo — como um "não, não" de cabeça.
+
+Isso é feito pelo Python (`Arduino.cabeca_balancando`), com o mesmo sketch: em
+vez de deixar a cabeça ir até os 600 ms do `AMPLITUDE_GIRO_MS`, o Python manda
+o sketch inverter o sentido bem antes. O tamanho do balanço é o tempo de motor
+ligado do centro até cada lado, ajustável no `.env`:
+
+```
+ARDUINO_BALANCO_MS=60
+```
+
+O padrão é **60 ms**, testado no boneco do grupo: balanço visível sem forçar
+os fios. Ele vale para as três cenas (Hashirama, Sharingan e Rinnegan).
+
+A cada gesto a cabeça para no centro. Isso impede que pequenos atrasos do USB
+se acumulem e façam o balanço "andar" para um lado durante uma fala longa.
+
+### Enviando o sketch para a placa
+
+1. Abra `arduino/madara_arduino/madara_arduino.ino` no Arduino IDE.
+2. Em **Ferramentas › Placa**, escolha *Arduino Uno*; em **Porta**, a porta USB.
+3. Clique em **Carregar**.
+
+> **Mac com chip Apple (M1 em diante):** o compilador e o gravador que o
+> Arduino IDE usa para placas AVR só existem para processadores Intel, e o
+> carregamento falha com `bad CPU type in executable`. Até o macOS 26 basta
+> instalar o Rosetta (`softwareupdate --install-rosetta --agree-to-license`).
+> A partir do macOS 27 o Rosetta não é mais oferecido: carregue o sketch por um
+> computador com Windows ou Intel. Só é preciso carregar uma vez — depois disso
+> a placa funciona ligada em qualquer computador, porque a conversa com o
+> Python pelo USB não depende dessas ferramentas.
+
+### Testando sem a assistente
+
+Com o sketch carregado e o **Monitor Serial do Arduino IDE fechado** (só um
+programa usa a porta por vez):
+
+```bash
+python testar_arduino.py        # ajusta o tamanho do balanço com vocês
+python testar_arduino.py 80     # balança direto com 80 ms por lado
+```
+
+O script acende só o LED vermelho, depois só o azul e depois os dois — para
+conferir a fiação — e então balança a cabeça. Sem argumento,
+ele começa com um balanço bem pequeno (30 ms) e, a cada tentativa, pergunta se
+está bom: Enter balança mais, `m` balança menos, `s` confirma. No fim, mostra a
+linha para gravar no `.env` (`ARDUINO_BALANCO_MS=...`).
+
+Se ele não achar a placa, lista as portas disponíveis — copie a certa para
+`ARDUINO_PORTA` no `.env`.
+
+### Como o Python conversa com a placa
+
+O protocolo é o mesmo do exemplo `arduino_serial.ino` visto em aula: **um
+caractere por comando, a 9600 baud**.
+
+| Caractere | Ação |
+|---|---|
+| `O` | acende os olhos |
+| `o` | apaga os olhos |
+| `G` | começa a girar a cabeça (vai e volta) |
+| `P` | para e devolve a cabeça ao centro |
+| `V` | acende só o LED vermelho (Sharingan) |
+| `A` | acende só o LED azul (Rinnegan) |
+
+Duas diferenças em relação ao exemplo da aula:
+
+- **Handshake em vez de `sleep(2)`.** Abrir a porta serial reinicia o Arduino,
+  e o que chega nos primeiros ~2 s se perde. Em vez de esperar um tempo fixo,
+  o sketch envia `PRONTO v2` ao ligar e o Python espera essa mensagem. O `v2`
+  indica que a placa sabe acender cada LED sozinho; com um sketch antigo, que
+  manda só `PRONTO`, o Sharingan e o Rinnegan acendem os dois LEDs e o
+  terminal avisa para carregar a versão nova.
+- **Sketch sem `delay()`.** Enquanto a cabeça gira, a placa precisa continuar
+  ouvindo a serial para obedecer o `o` e o `P` na hora. Cada movimento é
+  controlado por `millis()`, então nada bloqueia.
+
+Por segurança, se o Python travar sem mandar `P`, a cabeça para sozinha
+depois de 30 segundos. E ao encerrar a assistente (inclusive com Ctrl+C), o
+boneco volta ao repouso: olhos apagados e cabeça no centro.
+
+---
+
 ## ▶️ Como executar
 
 ```bash
@@ -279,7 +456,34 @@ Fale, por exemplo:
 - *"madara quem sou eu?"*
 - *"madara quanto vale um bitcoin?"*
 - *"madara jogo da velha"*
+- *"madara hashirama"* (com o boneco conectado)
+- *"madara ativar sharingan"* / *"madara ativar rinnegan"*
 - *"madara desligar"*
+
+O Arduino é **opcional**: sem a placa, a assistente avisa no terminal e
+funciona normalmente, só sem os efeitos físicos.
+
+---
+
+## 🧱 Modelos 3D do boneco
+
+As peças do boneco foram modeladas no **Fusion 360** e impressas em 3D. Os
+arquivos ficam na pasta `modelos3d/`:
+
+| Arquivo | O que é | Tamanho |
+|---|---|---|
+| `01_Tronco_suporte_TT.stl` | Corpo em forma de cúpula, com o suporte do motor TT (o motor da cabeça) e a abertura por onde passa o pescoço | 155 × 133 × 88 mm |
+| `02_Cabeca_cabelo_pescoco.stl` | Cabeça com o cabelo espetado do Madara e o pescoço, que encaixa no tronco | 86 × 77 × 106 mm |
+| `03_Tampa_inferior.stl` | Base que fecha o tronco por baixo — **não usada** (ver abaixo) | 150 × 130 × 8 mm |
+| `Madara_Maker_cp2.stl` | O boneco montado num único arquivo, para visualizar o conjunto | 155 × 177 × 133 mm |
+| `Madara_Maker_CP2.f3d` | Projeto editável no Fusion 360, de onde saem as peças | — |
+
+As peças para imprimir são as numeradas (`01` a `03`). O GitHub mostra os
+arquivos `.stl` em 3D direto no navegador — é só clicar neles.
+
+> **Tampa inferior não usada:** a `03_Tampa_inferior.stl` deu problema na
+> impressão e ficou de fora do boneco final. O arquivo continua no
+> repositório para quem quiser reimprimi-la e fechar a base.
 
 ---
 
@@ -291,7 +495,7 @@ clonar, é normal que eles não existam — o passo a passo acima os recria.
 | Arquivo / pasta | Por que não vai para o GitHub |
 |---|---|
 | `.env` | Contém a chave da API. Uma chave em commit fica no histórico para sempre. |
-| `classificadoreigen.yml` | **133 MB** — acima do limite de 100 MB do GitHub, o push seria rejeitado. É gerado: recrie com `python treinar_modelo.py`. |
+| `classificadoreigen.yml` | Arquivo **gerado** — recrie com `python treinar_modelo.py`. Confirmado com o professor que não precisa ir no repositório. Também costuma passar do limite de 100 MB por arquivo do GitHub. |
 | `fotos/` | Imagens biométricas de pessoas reais e identificáveis. Não devem ser publicadas sem o consentimento de cada uma. |
 | `.venv/` | Guarda caminhos absolutos da máquina. Cada pessoa cria a sua. |
 | `agenda.txt` | Dado de uso, não código. |
@@ -304,10 +508,13 @@ clonar, é normal que eles não existam — o passo a passo acima os recria.
 
 - [x] **Itens 1 a 9** implementados, código dividido em funções e comentado.
 - [x] **Mais de 2 comandos extras** (item 10): dólar, bitcoin, tempo, Google,
-      YouTube, print, volume, portal, jogo da velha.
+      YouTube, print, volume, portal, jogo da velha — e, com o boneco,
+      Hashirama, Sharingan e Rinnegan.
 - [x] **Orientação a objetos** com várias classes (`AssistenteMadara`, `Voz`,
       `Agenda`, `ReconhecimentoFacial`, `IAGenerativa`, `Utilidades`,
-      `JogoDaVelha`).
+      `JogoDaVelha`, `Arduino`).
+- [x] **Boneco físico**: Arduino com olhos de LED e cabeça motorizada, e peças
+      impressas em 3D.
 - [x] **Documentação** completa com dependências e instruções de instalação.
 
 ---
@@ -321,7 +528,6 @@ clonar, é normal que eles não existam — o passo a passo acima os recria.
 | Gustavo Henrique Santos Bonfim | RM98864 |
 | Kayky Paschoal Ribeiro | RM99929 |
 | Lucas Yuji Farias Umada | RM99757 |
-| André Sóler | RM98827 |
 
 ---
 
@@ -329,8 +535,12 @@ clonar, é normal que eles não existam — o passo a passo acima os recria.
 
 - **SpeechRecognition** — reconhecimento de fala (Google Speech API)
 - **edge-tts** — síntese de voz de personagem (grave/sombria), gratuita
-- **pyttsx3 / gTTS + pygame** — síntese de voz (fallback offline)
+- **pyttsx3** — síntese de voz offline (fallback quando falta internet)
+- **pygame** — reprodução do áudio gerado pelo edge-tts
 - **OpenCV (opencv-contrib-python)** — detecção e reconhecimento facial (Eigenfaces)
 - **Groq / Ollama** — IA generativa (LLMs)
 - **requests** — cotações, clima e integração HTTP
 - **pyautogui** — automação de sistema (print e volume)
+- **pyserial** — comunicação com o Arduino pela porta USB
+- **Arduino Uno + ponte H + motor DC** — olhos (LEDs com fade por PWM) e cabeça do boneco
+- **Fusion 360 + impressão 3D** — corpo e cabeça do boneco

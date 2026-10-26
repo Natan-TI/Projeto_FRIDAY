@@ -22,11 +22,19 @@ Comandos suportados:
     9) "pergunte à IA ..." / livre      -> integração com IA generativa
    10) extras: dólar, bitcoin, tempo, youtube, print,
        portal da faculdade e jogo da velha.
+   11) Arduino: os olhos (LEDs) acendem a cada fala, e três cenas balançam
+       a cabeça do boneco enquanto ele fala:
+         "madara hashirama"        -> provoca o clã Senju
+         "madara ativar sharingan" -> só o LED vermelho acende
+         "madara ativar rinnegan"  -> só o LED azul acende
 
 Execute com:  python madara.py
 """
 
+import random
+
 from modulos import (
+    Arduino,
     Voz,
     Agenda,
     ReconhecimentoFacial,
@@ -39,12 +47,56 @@ from modulos import (
 class AssistenteMadara:
     """Classe principal: junta todos os módulos e roteia os comandos de voz."""
 
+    # Como o reconhecimento de fala pode escrever "Hashirama". Se o terminal
+    # mostrar outra grafia quando você falar, é só acrescentá-la aqui.
+    GATILHOS_HASHIRAMA = ("hashirama", "rashirama", "ashirama", "achirama",
+                          "hashi rama")
+
+    # Falas sorteadas quando alguém provoca o MADARA com o nome do rival.
+    FALAS_HASHIRAMA = (
+        "Hashirama... Esse nome ainda queima dentro de mim. O clã Senju se "
+        "ajoelhou uma vez, e vai se ajoelhar de novo diante do meu Sharingan.",
+        "Você ousa pronunciar o nome de Hashirama na minha presença? Os Senju "
+        "só continuam de pé porque eu ainda não terminei o que comecei.",
+        "Hashirama, meu velho rival. A paz dos Senju é uma ilusão vendida aos "
+        "fracos. Eu vou despertar este mundo desse sonho.",
+        "Os Senju ergueram a vila sobre o sangue dos Uchiha. Chegou a hora de "
+        "cobrar essa dívida, até o último deles.",
+    )
+
+    # Sharingan e Rinnegan só disparam junto com o verbo "ativar": assim uma
+    # pergunta como "madara, quem tem o sharingan?" continua indo para a IA.
+    GATILHOS_ATIVAR = ("ativar", "ative", "ativa")
+    GATILHOS_SHARINGAN = ("sharingan", "sharingam", "xaringan", "charingan",
+                          "sharing gan")
+    GATILHOS_RINNEGAN = ("rinnegan", "rinegan", "rinengan", "renegan",
+                         "rinne gan", "rin negan")
+
+    # "Manguekiô" está escrito como se fala: escrito "Mangekyou", a voz em
+    # português lê "man-jé-kiou".
+    FALAS_SHARINGAN = (
+        "Manguekiô Sharingan! Nada escapa destes olhos.",
+        "Manguekiô Sharingan! Você já está preso na minha ilusão.",
+        "Manguekiô Sharingan! Eu vejo cada movimento seu antes mesmo de você "
+        "pensar nele.",
+    )
+    FALAS_RINNEGAN = (
+        "Rinnegan! O olho do Sábio dos Seis Caminhos.",
+        "Rinnegan do Sábio dos Seis Caminhos! Contemple o poder que rege a "
+        "vida e a morte.",
+        "Rinnegan! Com estes olhos, eu vou conduzir este mundo ao Tsukuyomi "
+        "Infinito.",
+    )
+
     def __init__(self, nome: str = "madara"):
         # Palavra de ativação (wake word). Só após ouvi-la a MADARA age.
         self.nome = nome.lower()
 
         # Instancia cada módulo (composição de objetos).
-        self.voz = Voz()
+        # O Arduino vem primeiro porque a Voz o recebe para acender os olhos
+        # a cada fala. Sem placa conectada, ele apenas avisa e fica inativo.
+        self.arduino = Arduino()
+        self.voz = Voz(arduino=self.arduino)
         self.agenda = Agenda()
         self.face = ReconhecimentoFacial()
         self.ia = IAGenerativa(provedor="groq")  # troque para "ollama" se quiser local
@@ -57,11 +109,19 @@ class AssistenteMadara:
     # ------------------------------------------------------------------ #
     def executar(self) -> None:
         """Fica ouvindo continuamente e processa cada fala reconhecida."""
-        self.voz.falar(
-            "Olá! Eu sou o MADARA. Diga 'madara' seguido de um comando "
-            "para começar."
-        )
+        try:
+            self.voz.falar(
+                "Olá! Eu sou o MADARA. Diga 'madara' seguido de um comando "
+                "para começar."
+            )
+            self._laco_principal()
+        finally:
+            # Roda até no Ctrl+C: apaga os olhos, centraliza a cabeça e
+            # libera a porta serial para a próxima execução.
+            self.arduino.fechar()
 
+    def _laco_principal(self) -> None:
+        """Ouve e processa falas até o comando de desligar."""
         while self.ativa:
             fala = self.voz.ouvir()
 
@@ -90,6 +150,18 @@ class AssistenteMadara:
             self.voz.falar("Até logo! Encerrando.")
             self.ativa = False
             return
+
+        # --- Arduino: cenas que balançam a cabeça do boneco ---
+        if any(g in comando for g in self.GATILHOS_HASHIRAMA):
+            self._cena(self.FALAS_HASHIRAMA)
+            return
+        if any(g in comando for g in self.GATILHOS_ATIVAR):
+            if any(g in comando for g in self.GATILHOS_SHARINGAN):
+                self._cena(self.FALAS_SHARINGAN, olhos="vermelho")
+                return
+            if any(g in comando for g in self.GATILHOS_RINNEGAN):
+                self._cena(self.FALAS_RINNEGAN, olhos="azul")
+                return
 
         # --- Item 8: limpar agenda (checado ANTES de 'cadastrar/ler') ---
         if "limpar agenda" in comando or "apagar agenda" in comando:
@@ -217,6 +289,28 @@ class AssistenteMadara:
             self.voz.falar("Não reconheci você. Você parece um desconhecido.")
         else:
             self.voz.falar(f"Reconheci você! Olá, {nome}.")
+
+    def _cena(self, falas: tuple[str, ...], olhos: str = "ambos") -> None:
+        """
+        Sorteia uma das 'falas' e a diz balançando a cabeça do boneco.
+
+        olhos -> quais LEDs acendem durante a fala: "ambos" (Hashirama),
+                 "vermelho" (Sharingan) ou "azul" (Rinnegan).
+
+        O balanço é curto, de um lado para o outro, sem dar voltas - para não
+        torcer os fios dentro do boneco (ver Arduino.cabeca_balancando).
+
+        A cabeça é entregue à Voz como 'efeito', e não ligada aqui antes de
+        falar: assim ela começa a se mexer no mesmo instante em que o áudio
+        começa a tocar e os olhos acendem. Ligada antes, ela se mexia sozinha
+        durante o segundo em que a voz ainda está sendo gerada pela internet.
+        Sem Arduino conectado, o MADARA apenas fala.
+        """
+        self.voz.falar(
+            random.choice(falas),
+            efeito=self.arduino.cabeca_balancando,
+            olhos=olhos,
+        )
 
     def _perguntar_ia(self, pergunta: str) -> None:
         """Encaminha perguntas abertas para a IA generativa (item 9)."""

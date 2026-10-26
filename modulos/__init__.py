@@ -8,6 +8,7 @@ Reúne as classes responsáveis por cada funcionalidade da assistente:
     - IAGenerativa         -> integração com LLMs (Groq na nuvem / Ollama local)
     - Utilidades           -> hora, data, cálculos, cotações, clima, etc.
     - JogoDaVelha          -> mini-game jogado por voz
+    - Arduino              -> olhos (LEDs) e cabeça (servo) do boneco
 """
 
 from .voz import Voz
@@ -16,6 +17,7 @@ from .reconhecimento_facial import ReconhecimentoFacial
 from .ia_generativa import IAGenerativa
 from .utilidades import Utilidades
 from .jogo_da_velha import JogoDaVelha
+from .arduino import Arduino
 
 __all__ = [
     "Voz",
@@ -24,4 +26,5 @@ __all__ = [
     "IAGenerativa",
     "Utilidades",
     "JogoDaVelha",
+    "Arduino",
 ]

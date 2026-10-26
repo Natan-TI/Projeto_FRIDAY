@@ -19,9 +19,9 @@ __pycache__/
 *.egg-info/
 
 # --- Modelo treinado ---
-# 133 MB: acima do limite de 100 MB do GitHub, o push seria REJEITADO.
-# Além disso é um arquivo GERADO - basta rodar 'python treinar_modelo.py'
-# para recriá-lo a partir da pasta 'fotos/'.
+# É um arquivo GERADO: quem clonar recria com 'python treinar_modelo.py'
+# a partir da pasta 'fotos/'. Também costuma passar do limite de 100 MB
+# por arquivo do GitHub, que rejeitaria o push.
 classificadoreigen.yml
 
 # --- Fotos dos rostos ---

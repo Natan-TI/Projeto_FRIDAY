@@ -25,7 +25,16 @@ import numpy as np
 from modulos.cv_utils import imread_unicode, salvar_modelo
 
 # Reconhecedor Eigenfaces.
-eigen = cv2.face.EigenFaceRecognizer_create()
+#
+# num_components = quantos "autorrostos" (padrões de variação entre os
+# rostos) o PCA guarda. O padrão do OpenCV guarda todos - com 300 fotos
+# seriam 300, gerando um arquivo de 399 MB que leva 1,3 s para carregar a
+# cada "quem sou eu". Medindo com as fotos deste projeto, 50 componentes
+# acertam quem é quem tão bem quanto todos (98,3%), com 67 MB e 0,2 s, e
+# separam melhor os cadastrados dos estranhos.
+# Se mudar este número, recalibre o 'limite_confianca' em
+# modulos/reconhecimento_facial.py.
+eigen = cv2.face.EigenFaceRecognizer_create(num_components=50)
 
 # Mapa Nome -> id. O id 0 é reservado para "Desconhecido".
 # A CHAVE deve ser exatamente o trecho do nome do arquivo antes do "_".
@@ -39,8 +48,31 @@ MAPA_IDS = {
     "Natan": 1,
     "gustavo": 2,
     "Lucas": 3,
-    "João Pedro": 4,
+    "Joao": 4,
+    "Kayky": 5,
+    "Andre": 6
 }
+
+
+def normalizar(nome: str) -> str:
+    """
+    Padroniza um nome para a busca no MAPA_IDS, tornando-a imune a:
+        - MAIÚSCULAS/minúsculas  ("Gustavo" == "gustavo")
+        - acentos                ("João" == "Joao")
+        - espaços sobrando
+
+    O acento importa por dois motivos: o macOS grava nomes de arquivo numa
+    forma decomposta (o "ã" vira "a" + til separados), que NÃO é igual ao
+    texto digitado aqui no código; e cada pessoa pode digitar o nome com ou
+    sem acento na hora de capturar as fotos.
+    """
+    sem_acento = unicodedata.normalize("NFD", nome)
+    sem_acento = "".join(c for c in sem_acento if not unicodedata.combining(c))
+    return sem_acento.strip().casefold()
+
+
+# Versão do MAPA_IDS pronta para a busca (chaves já normalizadas).
+MAPA_BUSCA = {normalizar(nome): id_ for nome, id_ in MAPA_IDS.items()}
 
 
 def carregar_imagens(pasta: str = "fotos"):
@@ -65,16 +97,13 @@ def carregar_imagens(pasta: str = "fotos"):
         imagem_cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
 
         # O nome vem do início do arquivo: 'Natan_1.jpg' -> 'Natan'.
-        # O normalize("NFC") é obrigatório no macOS: o sistema de arquivos
-        # guarda "João" na forma decomposta (a + til separados), que NÃO é
-        # igual ao "João" escrito aqui no código. Sem isso a busca no
-        # MAPA_IDS falha silenciosamente e a pessoa vira "Desconhecido".
-        nome = unicodedata.normalize("NFC", os.path.split(caminho)[-1].split("_")[0])
-        if nome not in MAPA_IDS:
+        nome = os.path.split(caminho)[-1].split("_")[0]
+        chave = normalizar(nome)
+        if chave not in MAPA_BUSCA:
             # Sem esse aviso o treino rodaria "com sucesso", mas jogaria todo
             # mundo que falta no MAPA_IDS dentro do mesmo id 0 (Desconhecido).
             nao_mapeados.add(nome)
-        ids.append(MAPA_IDS.get(nome, 0))  # desconhecido = 0
+        ids.append(MAPA_BUSCA.get(chave, 0))  # desconhecido = 0
         faces.append(imagem_cinza)
 
     if nao_mapeados:
@@ -99,7 +128,7 @@ if __name__ == "__main__":
         contagem = collections.Counter(ids.tolist())
         print("Fotos por id:")
         for id_pessoa, total in sorted(contagem.items()):
-            nome = next((n for n, i in MAPA_IDS.items() if i == id_pessoa), "Desconhecido")
+            nome = next((n for n, i in MAPA_IDS.items() if i == id_pessoa), "?")
             print(f"  id {id_pessoa} ({nome}): {total} fotos")
         eigen.train(faces, ids)
         salvar_modelo(eigen, "classificadoreigen.yml")  # salva driblando o acento no path

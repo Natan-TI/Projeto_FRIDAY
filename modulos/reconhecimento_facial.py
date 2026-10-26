@@ -44,10 +44,12 @@ class ReconhecimentoFacial:
             1: "Natan",
             2: "Gustavo",
             3: "Lucas",
-            4: "João Pedro",
+            4: "Joao",
+            5: "Kayky",
+            6: "Andre"
         }
 
-    def reconhecer(self, limite_confianca: float = 6750.0) -> str:
+    def reconhecer(self, limite_confianca: float = 4400.0) -> str:
         """
         Abre a webcam e tenta reconhecer a pessoa à frente.
 
@@ -55,22 +57,23 @@ class ReconhecimentoFacial:
         é a correspondência. Acima de 'limite_confianca' tratamos como
         'Desconhecido'.
 
-        Sobre o valor 6750: foi calibrado com as 100 fotos da pasta 'fotos/',
-        treinando com uma pessoa inteira de fora para simular um estranho.
-        As faixas medidas foram:
+        Sobre o valor 4400: foi calibrado com as 300 fotos da pasta 'fotos/'
+        (6 pessoas x 50), com o modelo de 50 componentes de treinar_modelo.py.
+        Para simular um estranho, o modelo foi treinado com uma pessoa
+        inteira de fora e testado nas fotos dela. Resultado:
 
-            pessoas cadastradas -> confiança de 1192 a 6549
-            estranhos           -> confiança de 6374 a 10660
+            limiar | reconhece cadastrados | rejeita estranhos
+             4100  |          78%          |       100%
+             4400  |          85%          |        98%   <- escolhido
+             5000  |          88%          |        86%
 
-        Em 6750 o sistema aceita 100% de quem está cadastrado e ainda rejeita
-        99% dos estranhos. O valor anterior (6000) caía dentro da faixa das
-        pessoas cadastradas e chamava de "Desconhecido" quem o modelo já
-        tinha acertado.
+        Acima de 4400 cada ponto a mais para os cadastrados custa muitos
+        pontos na rejeição de estranhos.
 
-        Se vocês recapturarem as fotos, REFAÇA essa calibragem: o número
-        depende da câmera e da iluminação. A janela mostra a confiança ao
-        lado do nome - observe os valores nos acertos e nos erros e escolha
-        um limiar entre as duas faixas.
+        IMPORTANTE: o número depende das fotos, da câmera, da iluminação e do
+        num_components do treino. Se mudar qualquer um deles, recalibre. A
+        janela mostra a confiança ao lado do nome - observe os valores nos
+        acertos e nos erros e escolha um limiar entre as duas faixas.
 
         Retorna o nome reconhecido (ou 'Desconhecido'). Pressione 'q' para sair.
         """

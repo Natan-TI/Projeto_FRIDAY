@@ -36,7 +36,13 @@ requests>=2.32
 groq>=0.11
 
 # --- Voz de personagem (grave/sombria) - gratuita, sem chave de API ---
-edge-tts>=6.1
+edge-tts>=7.3.1          # a Microsoft muda o acesso ao serviço de tempos em tempos;
+                         # versões antigas passam a receber erro 403
+
+# --- Comunicação com o Arduino (olhos e cabeça do boneco) ---
+# ATENÇÃO: o pacote certo é 'pyserial'. Existe outro chamado 'serial' no
+# PyPI, sem relação, que quebra o 'import serial' se for instalado.
+pyserial>=3.5
 
 # --- Automação de sistema (print de tela e volume) ---
 pyautogui>=0.9.54

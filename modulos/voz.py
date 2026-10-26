@@ -24,6 +24,8 @@ Como funciona a voz "assustadora":
 import os
 import asyncio
 import tempfile
+import time
+from contextlib import ExitStack, contextmanager
 
 import speech_recognition as sr
 
@@ -33,16 +35,25 @@ from .config import obter_variavel
 class Voz:
     """Encapsula tudo que envolve ouvir e falar da assistente."""
 
-    def __init__(self, idioma: str = "pt-BR", taxa_fala: int = 190, motor: str = "auto"):
+    def __init__(
+        self,
+        idioma: str = "pt-BR",
+        taxa_fala: int = 190,
+        motor: str = "auto",
+        arduino=None,
+    ):
         """
         Parâmetros:
             idioma    -> idioma usado no reconhecimento e na síntese.
             taxa_fala -> velocidade da fala (só usada no motor pyttsx3).
             motor     -> 'auto' (tenta a voz de personagem e cai no pyttsx3 se
                          faltar internet/biblioteca), 'edge' ou 'pyttsx3'.
+            arduino   -> objeto Arduino (opcional). Se informado, os olhos do
+                         boneco acendem durante cada fala.
         """
         self.idioma = idioma
         self.taxa_fala = taxa_fala
+        self.arduino = arduino
 
         # Reconhecedor de fala (Speech-to-Text).
         self.reconhecedor = sr.Recognizer()
@@ -80,19 +91,30 @@ class Voz:
     # ------------------------------------------------------------------ #
     #  Text-to-Speech (falar) - ponto único de entrada
     # ------------------------------------------------------------------ #
-    def falar(self, texto: str) -> None:
-        """Fala um texto em voz alta (e também imprime no terminal)."""
+    def falar(self, texto: str, efeito=None, olhos: str = "ambos") -> None:
+        """
+        Fala um texto em voz alta (e também imprime no terminal).
+
+        efeito -> opcional: função que devolve um bloco 'with' para rodar
+                  ENQUANTO o áudio toca, junto com os olhos. Exemplo:
+                      voz.falar(frase, efeito=arduino.cabeca_balancando)
+                  Passamos a FUNÇÃO (sem parênteses), e não o bloco já
+                  criado, porque ele pode ser usado duas vezes: se a voz de
+                  personagem falhar no meio, o pyttsx3 toca a fala de novo.
+        olhos  -> quais LEDs acendem durante a fala: "ambos" (padrão),
+                  "vermelho" (Sharingan) ou "azul" (Rinnegan).
+        """
         print(f"MADARA: {texto}")
         # Tenta primeiro a voz de personagem (edge-tts); se falhar, usa pyttsx3.
         if self.motor == "edge":
-            if self._falar_edge(texto):
+            if self._falar_edge(texto, efeito, olhos):
                 return
-        self._falar_pyttsx3(texto)
+        self._falar_pyttsx3(texto, efeito, olhos)
 
     # ------------------------------------------------------------------ #
     #  Motor 1: edge-tts (voz de personagem, grave/sombria)
     # ------------------------------------------------------------------ #
-    def _falar_edge(self, texto: str) -> bool:
+    def _falar_edge(self, texto: str, efeito=None, olhos: str = "ambos") -> bool:
         """Gera o áudio com edge-tts e o reproduz. Retorna True se der certo."""
         try:
             import edge_tts
@@ -110,11 +132,30 @@ class Voz:
                 await comunicador.save(caminho)
 
             asyncio.run(_gerar())  # executa a rotina assíncrona do edge-tts
-            self._tocar_mp3(caminho)
+            with self._durante_o_audio(efeito, olhos):
+                self._tocar_mp3(caminho)
             return True
         except Exception as erro:
             print(f"[Voz] Falha na voz de personagem ({erro}). Usando a voz padrão.")
             return False
+
+    @contextmanager
+    def _durante_o_audio(self, efeito=None, olhos: str = "ambos"):
+        """
+        Liga os olhos do boneco (e o 'efeito' extra, se houver) durante o
+        bloco 'with', e desliga tudo no fim - mesmo se o áudio der erro.
+
+        Usado só em volta da REPRODUÇÃO do áudio, não da fala inteira: o
+        edge-tts leva cerca de 1 segundo gerando o mp3 pela internet antes
+        de tocar, e qualquer efeito ligado antes disso ficaria fora de
+        sincronia com a voz. Sem Arduino, só o 'efeito' (se houver) roda.
+        """
+        with ExitStack() as pilha:
+            if self.arduino is not None:
+                pilha.enter_context(self.arduino.olhos_acesos(olhos))
+            if efeito is not None:
+                pilha.enter_context(efeito())
+            yield
 
     @staticmethod
     def _tocar_mp3(caminho: str) -> None:
@@ -126,7 +167,10 @@ class Voz:
         mixer.music.load(caminho)
         mixer.music.play()
         while mixer.music.get_busy():
-            continue
+            # Espera em pausas de 10 ms em vez de um laço vazio: o laço vazio
+            # ocupava 100% do processador durante a fala inteira e atrasava a
+            # thread que balança a cabeça do boneco no mesmo momento.
+            time.sleep(0.01)
         mixer.music.unload()
 
     # ------------------------------------------------------------------ #
@@ -149,7 +193,7 @@ class Voz:
             print(f"[Voz] Não foi possível listar as vozes: {erro}")
             return None
 
-    def _falar_pyttsx3(self, texto: str) -> None:
+    def _falar_pyttsx3(self, texto: str, efeito=None, olhos: str = "ambos") -> None:
         """
         Fala usando o pyttsx3. Recria o motor a cada chamada para evitar o bug
         do 'fala só na primeira vez' no Windows.
@@ -162,7 +206,8 @@ class Voz:
             if self.voz_id:
                 motor.setProperty("voice", self.voz_id)
             motor.say(texto)
-            motor.runAndWait()
+            with self._durante_o_audio(efeito, olhos):
+                motor.runAndWait()  # é aqui que o áudio realmente toca
             motor.stop()  # encerra o motor para a próxima fala funcionar
         except Exception as erro:
             print(f"[Voz] Falha ao sintetizar áudio: {erro}")
@@ -215,4 +260,12 @@ class Voz:
             return ""
         except sr.RequestError as erro:
             print(f"[Voz] Erro ao acessar o serviço de reconhecimento: {erro}")
+            return ""
+        except OSError as erro:
+            # O áudio é convertido para FLAC antes de ir ao Google. Sem um
+            # 'flac' instalado, a biblioteca usa uma cópia embutida que só
+            # roda em processador Intel - num Mac com chip Apple e sem
+            # Rosetta, isso derrubava a assistente inteira.
+            print(f"[Voz] Não consegui preparar o áudio ({erro}). "
+                  "No macOS, instale o conversor com: brew install flac")
             return ""

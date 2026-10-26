@@ -22,7 +22,7 @@ classificador = carregar_classificador_face()
 
 camera = cv2.VideoCapture(0)
 amostra = 1
-numero_max_amostras = 25
+numero_max_amostras = 50
 nome = input("Digite seu nome (ou 'Desconhecido'): ").strip()
 
 # Garante que a pasta de fotos exista.
